@@ -1,0 +1,19 @@
+[project]
+name = "google-classroom-drive-downloader"
+version = "0.1.0"
+description = "Download Google Drive files attached to Google Classroom coursework and materials."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "google-api-python-client>=2.0.0",
+    "google-auth>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
+]
+
+[project.scripts]
+classroom-drive-downloader = "cli:main"
+google-classroom-drive-downloader = "cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

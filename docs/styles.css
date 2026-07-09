@@ -1,17 +1,22 @@
 :root {
   color-scheme: light;
-  --bg: #f4f7f8;
+  --bg: #f8fafd;
   --surface: #ffffff;
-  --surface-2: #eef3f2;
-  --text: #17201f;
-  --muted: #637270;
-  --line: #d7e1df;
-  --accent: #0f766e;
-  --accent-strong: #0b5f59;
-  --warn: #a15c07;
-  --danger: #b42318;
-  --success: #087443;
-  --shadow: 0 16px 42px rgba(23, 32, 31, 0.1);
+  --surface-2: #f1f3f4;
+  --surface-3: #e8f0fe;
+  --text: #202124;
+  --muted: #5f6368;
+  --line: #dadce0;
+  --accent: #1a73e8;
+  --accent-strong: #1558b0;
+  --accent-soft: #e8f0fe;
+  --warn: #f9ab00;
+  --danger: #d93025;
+  --success: #188038;
+  --google-red: #ea4335;
+  --google-yellow: #fbbc04;
+  --google-green: #34a853;
+  --shadow: 0 1px 2px rgba(60, 64, 67, 0.12), 0 1px 3px rgba(60, 64, 67, 0.16);
 }
 
 * {
@@ -21,13 +26,10 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    linear-gradient(135deg, rgba(15, 118, 110, 0.1), rgba(198, 92, 54, 0.08)),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    "Google Sans", Roboto, Arial, ui-sans-serif, system-ui, sans-serif;
 }
 
 button,
@@ -38,23 +40,24 @@ select {
 
 button,
 .repo-link {
-  min-height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 20px;
   background: var(--surface);
-  color: var(--text);
+  color: var(--accent);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 14px;
-  font-weight: 800;
+  padding: 0 18px;
+  font-weight: 500;
   text-decoration: none;
+  transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
 button:hover,
 .repo-link:hover {
-  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 button:disabled,
@@ -65,10 +68,11 @@ select:disabled {
 }
 
 button.primary {
-  min-height: 50px;
+  min-height: 48px;
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  box-shadow: var(--shadow);
 }
 
 button.primary:hover {
@@ -76,21 +80,42 @@ button.primary:hover {
 }
 
 button.secondary {
-  background: var(--surface-2);
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--muted);
 }
 
 .app-shell {
-  width: min(1240px, calc(100% - 32px));
+  width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 26px 0;
+  padding: 24px 0 32px;
 }
 
 .topbar {
+  position: relative;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 20px;
+  min-height: 72px;
   margin-bottom: 18px;
+  padding-top: 16px;
+}
+
+.topbar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: min(420px, 100%);
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #4285f4 0 25%,
+    #ea4335 25% 50%,
+    #fbbc04 50% 75%,
+    #34a853 75% 100%
+  );
 }
 
 .eyebrow,
@@ -101,32 +126,32 @@ p {
 }
 
 .eyebrow {
-  color: var(--accent);
-  font-size: 0.86rem;
-  font-weight: 800;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
   margin-bottom: 6px;
 }
 
 h1 {
   max-width: 780px;
-  font-size: clamp(2rem, 4.8vw, 4.3rem);
-  line-height: 0.98;
+  font-size: clamp(2rem, 4.2vw, 3.75rem);
+  line-height: 1.04;
+  font-weight: 500;
   letter-spacing: 0;
 }
 
 h2,
 legend {
   font-size: 1rem;
-  font-weight: 900;
+  font-weight: 500;
   letter-spacing: 0;
 }
 
 .status-strip {
-  min-height: 58px;
+  min-height: 56px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: var(--shadow);
+  border-radius: 24px;
+  background: var(--surface);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -135,8 +160,8 @@ legend {
 }
 
 .status-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
   background: var(--accent);
   flex: 0 0 auto;
@@ -157,7 +182,7 @@ legend {
 .layout {
   display: grid;
   grid-template-columns: minmax(330px, 0.8fr) minmax(0, 1.2fr);
-  gap: 18px;
+  gap: 16px;
   align-items: start;
 }
 
@@ -173,14 +198,14 @@ fieldset,
 .log-panel,
 .help-panel {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: var(--shadow);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: none;
 }
 
 fieldset {
   margin: 0;
-  padding: 18px;
+  padding: 18px 18px 20px;
   display: grid;
   gap: 14px;
 }
@@ -191,29 +216,29 @@ legend {
 
 label {
   display: grid;
-  gap: 7px;
+  gap: 8px;
   color: var(--muted);
-  font-size: 0.9rem;
-  font-weight: 800;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 input[type="text"],
 input[type="date"],
 select {
   width: 100%;
-  min-height: 44px;
+  min-height: 46px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--surface);
   color: var(--text);
-  padding: 0 12px;
+  padding: 0 14px;
   outline: none;
 }
 
 input:focus,
 select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .button-row,
@@ -240,9 +265,9 @@ select:focus {
 .segmented {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 4px;
-  border-radius: 8px;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 22px;
   background: var(--surface-2);
 }
 
@@ -259,16 +284,17 @@ select:focus {
 
 .segmented span {
   min-height: 38px;
-  border-radius: 6px;
+  border-radius: 19px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .segmented input:checked + span {
-  background: var(--accent);
-  color: #fff;
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow);
 }
 
 .summary-grid {
@@ -278,7 +304,7 @@ select:focus {
 }
 
 .metric {
-  min-height: 96px;
+  min-height: 92px;
   padding: 16px;
   display: grid;
   align-content: center;
@@ -286,14 +312,15 @@ select:focus {
 }
 
 .metric span {
-  font-size: 2.1rem;
+  font-size: 2rem;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 500;
+  color: var(--accent);
 }
 
 .metric p {
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .progress-wrap,
@@ -302,7 +329,7 @@ select:focus {
 }
 
 .progress-track {
-  height: 12px;
+  height: 8px;
   border-radius: 999px;
   overflow: hidden;
   background: var(--surface-2);
@@ -319,7 +346,7 @@ select:focus {
 
 #progress-text {
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .log-panel {

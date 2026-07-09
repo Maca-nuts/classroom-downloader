@@ -6,6 +6,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -59,6 +60,15 @@ class DriveAttachment:
     course_id: str
 
 
+@dataclass(frozen=True)
+class DownloadFilters:
+    start_date: date | None
+    end_date: date | None
+    date_field: str
+    include_extensions: frozenset[str]
+    exclude_extensions: frozenset[str]
+
+
 class MissingGoogleDependency(RuntimeError):
     pass
 
@@ -68,6 +78,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "download":
+            args.download_filters = build_download_filters(args)
+
         credentials = authorize(Path(args.credentials), Path(args.token))
         classroom = build_google_service("classroom", "v1", credentials)
         drive = build_google_service("drive", "v3", credentials)
@@ -88,6 +101,9 @@ def main(argv: list[str] | None = None) -> int:
     except MissingGoogleDependency as exc:
         print(str(exc), file=sys.stderr)
         return 1
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     except Exception as exc:
         if is_google_http_error(exc):
             print(format_http_error(exc), file=sys.stderr)
@@ -135,6 +151,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-archived",
         action="store_true",
         help="Allow downloading from archived courses when the API returns them.",
+    )
+    download.add_argument(
+        "--start-date",
+        type=parse_date_arg,
+        help="Only download files whose selected Drive date is on or after YYYY-MM-DD.",
+    )
+    download.add_argument(
+        "--end-date",
+        type=parse_date_arg,
+        help="Only download files whose selected Drive date is on or before YYYY-MM-DD.",
+    )
+    download.add_argument(
+        "--date-field",
+        choices=("created", "modified"),
+        default="modified",
+        help="Drive file date used by --start-date/--end-date. Default: modified.",
+    )
+    download.add_argument(
+        "--include-ext",
+        help="Comma-separated extension whitelist, for example: pdf,docx,png",
+    )
+    download.add_argument(
+        "--exclude-ext",
+        help="Comma-separated extension blacklist, for example: zip,exe",
     )
     return parser
 
@@ -204,6 +244,8 @@ def list_courses(classroom: Any) -> int:
 
 
 def download_course_files(classroom: Any, drive: Any, args: argparse.Namespace) -> int:
+    filters = args.download_filters
+
     course = classroom.courses().get(id=args.course_id).execute()
     if course.get("courseState") == "ARCHIVED" and not args.include_archived:
         print(
@@ -218,6 +260,7 @@ def download_course_files(classroom: Any, drive: Any, args: argparse.Namespace) 
 
     skipped: list[dict[str, Any]] = []
     downloaded_count = 0
+    filtered_count = 0
 
     items = list(iter_course_items(classroom, args.course_id))
     if not items:
@@ -236,9 +279,20 @@ def download_course_files(classroom: Any, drive: Any, args: argparse.Namespace) 
         item_skipped: list[dict[str, Any]] = []
         for attachment in attachments:
             try:
+                metadata = get_drive_file_metadata(drive, attachment.file_id)
+                filter_reason = get_filter_skip_reason(
+                    metadata,
+                    args.export_format,
+                    filters,
+                )
+                if filter_reason:
+                    filtered_count += 1
+                    print(f"filtered\t{attachment.file_id}\t{filter_reason}")
+                    continue
+
                 saved_path = save_drive_file(
                     drive,
-                    attachment.file_id,
+                    metadata,
                     item_dir,
                     args.export_format,
                 )
@@ -266,7 +320,11 @@ def download_course_files(classroom: Any, drive: Any, args: argparse.Namespace) 
     if skipped:
         write_json(course_dir / "skipped.json", skipped)
 
-    print(f"Downloaded {downloaded_count} file(s). Skipped {len(skipped)} file(s).")
+    print(
+        f"Downloaded {downloaded_count} file(s). "
+        f"Filtered {filtered_count} file(s). "
+        f"Skipped {len(skipped)} file(s)."
+    )
     return 0 if downloaded_count or not skipped else 1
 
 
@@ -318,22 +376,28 @@ def collect_drive_attachments(
     return attachments
 
 
-def save_drive_file(
-    drive: Any,
-    file_id: str,
-    output_dir: Path,
-    export_format: str,
-) -> Path:
-    metadata = (
+def get_drive_file_metadata(drive: Any, file_id: str) -> dict[str, Any]:
+    return (
         drive.files()
         .get(
             fileId=file_id,
-            fields="id,name,mimeType,capabilities/canDownload,fileExtension",
+            fields=(
+                "id,name,mimeType,capabilities/canDownload,fileExtension,"
+                "createdTime,modifiedTime"
+            ),
             supportsAllDrives=True,
         )
         .execute()
     )
 
+
+def save_drive_file(
+    drive: Any,
+    metadata: dict[str, Any],
+    output_dir: Path,
+    export_format: str,
+) -> Path:
+    file_id = metadata.get("id")
     name = metadata.get("name") or file_id
     mime_type = metadata.get("mimeType") or "application/octet-stream"
     can_download = metadata.get("capabilities", {}).get("canDownload")
@@ -355,6 +419,108 @@ def save_drive_file(
     request = drive.files().get_media(fileId=file_id, supportsAllDrives=True)
     download_request_to_file(request, destination)
     return destination
+
+
+def build_download_filters(args: argparse.Namespace) -> DownloadFilters:
+    if args.start_date and args.end_date and args.start_date > args.end_date:
+        raise ValueError("--start-date must be on or before --end-date")
+
+    include_extensions = parse_extension_filter(args.include_ext)
+    exclude_extensions = parse_extension_filter(args.exclude_ext)
+    overlap = include_extensions & exclude_extensions
+    if overlap:
+        values = ", ".join(sorted(overlap))
+        raise ValueError(f"Extensions cannot be both included and excluded: {values}")
+
+    return DownloadFilters(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        date_field=args.date_field,
+        include_extensions=frozenset(include_extensions),
+        exclude_extensions=frozenset(exclude_extensions),
+    )
+
+
+def get_filter_skip_reason(
+    metadata: dict[str, Any],
+    export_format: str,
+    filters: DownloadFilters,
+) -> str | None:
+    extension = get_output_extension(metadata, export_format)
+    extension_label = extension or "(no extension)"
+
+    if filters.include_extensions and extension not in filters.include_extensions:
+        return f"extension {extension_label} is not in include list"
+
+    if extension in filters.exclude_extensions:
+        return f"extension {extension_label} is in exclude list"
+
+    if filters.start_date or filters.end_date:
+        metadata_key = "createdTime" if filters.date_field == "created" else "modifiedTime"
+        file_date = parse_google_datetime(metadata.get(metadata_key))
+        if file_date is None:
+            return f"missing Drive {metadata_key}"
+        if filters.start_date and file_date < filters.start_date:
+            return f"{filters.date_field} date {file_date.isoformat()} is before start date"
+        if filters.end_date and file_date > filters.end_date:
+            return f"{filters.date_field} date {file_date.isoformat()} is after end date"
+
+    return None
+
+
+def get_output_extension(metadata: dict[str, Any], export_format: str) -> str:
+    name = metadata.get("name") or metadata.get("id") or ""
+    mime_type = metadata.get("mimeType") or "application/octet-stream"
+
+    if mime_type in GOOGLE_DOC_EXPORTS:
+        _export_mime_type, extension = GOOGLE_DOC_EXPORTS[mime_type][export_format]
+        return normalize_extension(extension)
+
+    file_extension = metadata.get("fileExtension")
+    if file_extension:
+        return normalize_extension(file_extension)
+
+    return normalize_extension(Path(name).suffix)
+
+
+def parse_date_arg(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected YYYY-MM-DD") from exc
+
+
+def parse_extension_filter(value: str | None) -> set[str]:
+    if not value:
+        return set()
+
+    extensions: set[str] = set()
+    for raw_part in value.split(","):
+        extension = normalize_extension(raw_part)
+        if extension:
+            extensions.add(extension)
+    return extensions
+
+
+def normalize_extension(value: str) -> str:
+    extension = value.strip().lower()
+    if not extension:
+        return ""
+    if extension.startswith("."):
+        extension = extension[1:]
+    return extension
+
+
+def parse_google_datetime(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).date()
 
 
 def download_request_to_file(request: Any, destination: Path) -> None:

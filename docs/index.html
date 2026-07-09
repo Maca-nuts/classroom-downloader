@@ -3,119 +3,158 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Classroom Downloader Command Builder</title>
+    <title>Classroom Drive Downloader</title>
     <meta
       name="description"
-      content="Google Classroom Drive Downloader の実行コマンドを画面で作成できます。"
+      content="Google Classroom の添付 Drive ファイルをブラウザからまとめてダウンロードする GitHub Pages アプリです。"
     >
     <link rel="stylesheet" href="./styles.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
   </head>
   <body>
     <main class="app-shell">
-      <section class="workspace" aria-labelledby="app-title">
-        <div class="intro">
-          <div>
-            <p class="eyebrow">Google Classroom Drive Downloader</p>
-            <h1 id="app-title">コマンドビルダー</h1>
-          </div>
-          <a class="repo-link" href="https://github.com/Maca-nuts/classroom-downloader" target="_blank" rel="noreferrer">
-            GitHub
-          </a>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Google Classroom Drive Downloader</p>
+          <h1>Classroom の添付ファイルをまとめて保存</h1>
         </div>
+        <a class="repo-link" href="https://github.com/Maca-nuts/classroom-downloader" target="_blank" rel="noreferrer">GitHub</a>
+      </header>
 
-        <div class="panel-grid">
-          <form class="controls" id="command-form">
-            <fieldset>
-              <legend>対象</legend>
-              <label>
-                <span>Course ID</span>
-                <input id="course-id" type="text" placeholder="例: 1234567890" autocomplete="off">
-              </label>
-              <label>
-                <span>保存先</span>
-                <input id="output-dir" type="text" value="downloads" autocomplete="off">
-              </label>
-            </fieldset>
+      <section class="status-strip" id="status-strip" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <p id="status-text">Web OAuth Client ID を入力して認証してください。</p>
+      </section>
 
-            <fieldset>
-              <legend>Google ファイル</legend>
-              <div class="segmented" role="radiogroup" aria-label="Export format">
-                <label>
-                  <input type="radio" name="export-format" value="pdf" checked>
-                  <span>PDF</span>
-                </label>
-                <label>
-                  <input type="radio" name="export-format" value="office">
-                  <span>Office</span>
-                </label>
-              </div>
+      <section class="layout">
+        <form class="control-pane" id="download-form">
+          <fieldset>
+            <legend>1. 認証</legend>
+            <label>
+              <span>Web OAuth Client ID</span>
+              <input id="client-id" type="text" placeholder="1234567890-xxxx.apps.googleusercontent.com" autocomplete="off">
+            </label>
+            <div class="button-row">
+              <button id="authorize-button" type="button">Google で認証</button>
+              <button id="clear-token-button" type="button" class="secondary">解除</button>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>2. コース</legend>
+            <div class="button-row">
+              <button id="load-courses-button" type="button">コースを読み込む</button>
               <label class="check-row">
                 <input id="include-archived" type="checkbox">
-                <span>アーカイブ済みコースも対象にする</span>
+                <span>アーカイブ済みも表示</span>
               </label>
-            </fieldset>
+            </div>
+            <label>
+              <span>対象コース</span>
+              <select id="course-select">
+                <option value="">コースを読み込んでください</option>
+              </select>
+            </label>
+          </fieldset>
 
-            <fieldset>
-              <legend>日付</legend>
-              <div class="segmented" role="radiogroup" aria-label="Date field">
-                <label>
-                  <input type="radio" name="date-field" value="modified" checked>
-                  <span>更新日</span>
-                </label>
-                <label>
-                  <input type="radio" name="date-field" value="created">
-                  <span>作成日</span>
-                </label>
-              </div>
-              <div class="two-col">
-                <label>
-                  <span>開始日</span>
-                  <input id="start-date" type="date">
-                </label>
-                <label>
-                  <span>終了日</span>
-                  <input id="end-date" type="date">
-                </label>
-              </div>
-            </fieldset>
-
-            <fieldset>
-              <legend>拡張子</legend>
+          <fieldset>
+            <legend>3. 保存条件</legend>
+            <label>
+              <span>ZIP ファイル名</span>
+              <input id="zip-name" type="text" value="classroom-downloads.zip" autocomplete="off">
+            </label>
+            <div class="segmented" role="radiogroup" aria-label="Google ファイルの変換形式">
               <label>
-                <span>ホワイトリスト</span>
-                <input id="include-ext" type="text" placeholder="pdf, docx, png" autocomplete="off">
+                <input type="radio" name="export-format" value="pdf" checked>
+                <span>PDF</span>
               </label>
               <label>
-                <span>ブラックリスト</span>
-                <input id="exclude-ext" type="text" placeholder="zip, exe" autocomplete="off">
+                <input type="radio" name="export-format" value="office">
+                <span>Office</span>
               </label>
-            </fieldset>
-          </form>
-
-          <aside class="output-panel" aria-live="polite">
-            <div class="status-card" id="status-card">
-              <div class="status-dot" aria-hidden="true"></div>
-              <p id="status-text">Course ID を入力してください。</p>
             </div>
+          </fieldset>
 
-            <div class="command-card">
-              <div class="card-toolbar">
-                <h2>実行コマンド</h2>
-                <button id="copy-command" type="button">コピー</button>
-              </div>
-              <pre><code id="command-output"></code></pre>
+          <fieldset>
+            <legend>4. 絞り込み</legend>
+            <div class="segmented" role="radiogroup" aria-label="日付の種類">
+              <label>
+                <input type="radio" name="date-field" value="modified" checked>
+                <span>更新日</span>
+              </label>
+              <label>
+                <input type="radio" name="date-field" value="created">
+                <span>作成日</span>
+              </label>
             </div>
+            <div class="two-col">
+              <label>
+                <span>開始日</span>
+                <input id="start-date" type="date">
+              </label>
+              <label>
+                <span>終了日</span>
+                <input id="end-date" type="date">
+              </label>
+            </div>
+            <label>
+              <span>ダウンロードする拡張子</span>
+              <input id="include-ext" type="text" placeholder="pdf, docx, png" autocomplete="off">
+            </label>
+            <label>
+              <span>除外する拡張子</span>
+              <input id="exclude-ext" type="text" placeholder="zip, exe" autocomplete="off">
+            </label>
+          </fieldset>
 
-            <div class="steps">
-              <h2>公開後に必要な操作</h2>
-              <ol>
-                <li>GitHub の Settings で Pages を開く</li>
-                <li>Source を Deploy from a branch にする</li>
-                <li>Branch にこのブランチ、Folder に /docs を指定する</li>
-              </ol>
+          <button id="download-button" type="submit" class="primary">ZIP を作成してダウンロード</button>
+        </form>
+
+        <section class="work-pane">
+          <div class="summary-grid">
+            <div class="metric">
+              <span id="course-count">0</span>
+              <p>コース</p>
             </div>
-          </aside>
-        </div>
+            <div class="metric">
+              <span id="file-count">0</span>
+              <p>保存</p>
+            </div>
+            <div class="metric">
+              <span id="filtered-count">0</span>
+              <p>除外</p>
+            </div>
+            <div class="metric">
+              <span id="skipped-count">0</span>
+              <p>失敗</p>
+            </div>
+          </div>
+
+          <div class="progress-wrap">
+            <div class="progress-track" aria-hidden="true">
+              <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <p id="progress-text">待機中</p>
+          </div>
+
+          <div class="log-panel">
+            <div class="panel-header">
+              <h2>処理ログ</h2>
+              <button id="clear-log-button" type="button" class="secondary">クリア</button>
+            </div>
+            <ol id="log-list"></ol>
+          </div>
+
+          <div class="help-panel">
+            <h2>事前設定</h2>
+            <ol>
+              <li>Google Cloud Console で Classroom API と Drive API を有効化します。</li>
+              <li>OAuth クライアント ID は Web application で作成します。</li>
+              <li>Authorized JavaScript origins に GitHub Pages の URL を追加します。</li>
+            </ol>
+          </div>
+        </section>
       </section>
     </main>
     <script src="./app.js"></script>

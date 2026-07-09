@@ -86,9 +86,9 @@ button.secondary {
 }
 
 .app-shell {
-  width: min(1180px, calc(100% - 32px));
-  margin: 0 auto;
-  padding: 24px 0 32px;
+  width: 100%;
+  margin: 0;
+  padding: 20px 24px 32px;
 }
 
 .topbar {
@@ -181,8 +181,8 @@ legend {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(330px, 0.8fr) minmax(0, 1.2fr);
-  gap: 16px;
+  grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }
 
@@ -398,8 +398,7 @@ select:focus {
 
 @media (max-width: 900px) {
   .app-shell {
-    width: min(100% - 20px, 720px);
-    padding: 14px 0;
+    padding: 12px;
   }
 
   .topbar,

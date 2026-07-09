@@ -1,50 +1,30 @@
 # Google Classroom Drive Downloader
 
-Google Classroom で自分が参加しているコースから、`courseWork` と `courseWorkMaterials` に添付された Google Drive ファイルをダウンロードする Python CLI です。
+### おすすめのWEBアプリVer
+まずはお試しを[URL](https://maca-nuts.github.io/classroom-downloader/)
+**GoogleClassroomの授業に参加しているアカウントでログインしてください**
+**警告が出ますが、詳細のところから突破できます**
 
-## 機能
+### これは何ぞ？
 
-- Google OAuth 2.0 のローカル認証
-- Classroom API と Drive API を使用
-- 参加コース一覧の表示
-- 指定した `course_id` の `courseWork` と `courseWorkMaterials` を取得
-- `materials[].driveFile` 内の Drive file ID を収集
-- Drive API で `name`, `mimeType`, `capabilities.canDownload` を確認
-- 通常ファイルは `files.get_media` で保存
-- Google Docs / Sheets / Slides は PDF または Office 形式に export
-- 保存先は `downloads/<course名>/<課題名>/`
-- 同名ファイルは上書きせず `ファイル名 (1).ext` のように連番保存
-- 失敗したファイルは `skipped.json` に理由付きで保存
+-- Goole Classroomのファイルダウンローダー
+-- 拡張子や投稿日で絞り込んでダウンロードできます
 
-## Ver2.1 ブランチ
+-- CLIバージョンはより機能があるけど上級者むけ
 
-`Ver2.1` ブランチでは、ダウンロード対象を絞り込むためのオプションを追加しています。
 
-- `--start-date YYYY-MM-DD` と `--end-date YYYY-MM-DD` で Drive ファイルの日付範囲を指定
-- `--date-field created|modified` で作成日または更新日のどちらを使うか指定
-- `--include-ext pdf,docx,png` で拡張子のホワイトリストを指定
-- `--exclude-ext zip,exe` で拡張子のブラックリストを指定
+--------
 
-## WEBアプリVer
+## CLIの解説(見なくてもいい)
 
-まずはお試しを[URL](https://maca-nuts.github.io/classroom-downloader/))
 
-例:
-
-```powershell
-git switch Ver2.1
-python -m classroom_drive_downloader.cli download COURSE_ID --start-date 2026-01-01 --end-date 2026-03-31
-python -m classroom_drive_downloader.cli download COURSE_ID --include-ext pdf,docx,png
-python -m classroom_drive_downloader.cli download COURSE_ID --exclude-ext zip,exe
-```
-
-## 必要環境
+### 必要環境
 
 - Python 3.11+
 - Google アカウント
 - Google Cloud プロジェクト
 
-## セットアップ
+### セットアップ
 
 ```powershell
 python -m venv .venv
@@ -58,7 +38,7 @@ python -m pip install -r requirements.txt
 python -m pip install -e .
 ```
 
-## Google Cloud Console の設定
+### Google Cloud Console の設定
 
 1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成または選択します。
 2. 「API とサービス」から次の API を有効化します。
@@ -74,7 +54,7 @@ python -m pip install -e .
 
 `credentials.json` と `token.json` は認証情報なので `.gitignore` に含めています。
 
-## 使い方
+### 使い方
 
 初回実行時にブラウザが開き、Google の認可画面が表示されます。認証が成功すると `token.json` が作成され、次回以降は再利用されます。
 
@@ -114,7 +94,7 @@ python -m classroom_drive_downloader.cli download COURSE_ID --output-dir D:\clas
 python -m classroom_drive_downloader.cli download COURSE_ID --include-archived
 ```
 
-## 必要な OAuth スコープ
+### 必要な OAuth スコープ
 
 この CLI は次の読み取り専用スコープを要求します。
 
@@ -125,7 +105,7 @@ python -m classroom_drive_downloader.cli download COURSE_ID --include-archived
 
 スコープを変更した場合や認証エラーが続く場合は、`token.json` を削除して再認証してください。
 
-## 出力
+### 出力
 
 標準の保存先は次の形式です。
 
@@ -141,7 +121,7 @@ downloads/
 
 各課題フォルダの `skipped.json` には、その課題で失敗したファイルが記録されます。コース直下の `skipped.json` には、コース全体の失敗がまとめて記録されます。
 
-## 注意
+### 注意
 
 - Classroom や Drive 側の権限で見えないファイルはダウンロードできません。
 - `canDownload=false` の通常ファイルはスキップされます。

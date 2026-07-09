@@ -149,7 +149,7 @@ function validateSettings() {
 
 function getFilters() {
   return {
-    exportFormat: selectedValue("export-format"),
+    exportFormat: "pdf",
     dateField: selectedValue("date-field"),
     startDate: elements.startDate.value,
     endDate: elements.endDate.value,

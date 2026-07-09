@@ -6,6 +6,9 @@ const SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
 ].join(" ");
 
+const WEB_OAUTH_CLIENT_ID =
+  "233618178732-1266ebv74h0laguqt0ia1b7br3lgghfg.apps.googleusercontent.com";
+
 const COURSE_STATES = ["ACTIVE", "PROVISIONED", "DECLINED", "SUSPENDED"];
 const COURSE_STATES_WITH_ARCHIVED = [...COURSE_STATES, "ARCHIVED"];
 
@@ -39,7 +42,6 @@ const GOOGLE_DOC_EXPORTS = {
 
 const elements = {
   form: document.querySelector("#download-form"),
-  clientId: document.querySelector("#client-id"),
   authorize: document.querySelector("#authorize-button"),
   clearToken: document.querySelector("#clear-token-button"),
   loadCourses: document.querySelector("#load-courses-button"),
@@ -129,9 +131,6 @@ function validateSettings() {
     excludeExtensions.includes(extension),
   );
 
-  if (!elements.clientId.value.trim()) {
-    return "Web OAuth Client ID を入力してください。";
-  }
   if (!state.accessToken) {
     return "Google で認証してください。";
   }
@@ -160,16 +159,12 @@ function getFilters() {
 }
 
 function initializeTokenClient() {
-  const clientId = elements.clientId.value.trim();
-  if (!clientId) {
-    throw new Error("Web OAuth Client ID を入力してください。");
-  }
   if (!window.google?.accounts?.oauth2) {
     throw new Error("Google Identity Services を読み込めませんでした。");
   }
 
   state.tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
+    client_id: WEB_OAUTH_CLIENT_ID,
     scope: SCOPES,
     callback: (response) => {
       if (response.error) {

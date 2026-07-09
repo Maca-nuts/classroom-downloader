@@ -20,24 +20,24 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Google Classroom Drive Downloader</p>
-          <h1>Classroom の添付ファイルをまとめて保存</h1>
+          <h1>Classroomのファイルをまとめて保存</h1>
         </div>
         <a class="repo-link" href="https://github.com/Maca-nuts/classroom-downloader" target="_blank" rel="noreferrer">GitHub</a>
       </header>
 
       <section class="status-strip" id="status-strip" aria-live="polite">
         <span class="status-dot" aria-hidden="true"></span>
-        <p id="status-text">Web OAuth Client ID を入力して認証してください。</p>
+        <p id="status-text">Google で認証してください。</p>
       </section>
 
       <section class="layout">
         <form class="control-pane" id="download-form">
           <fieldset>
             <legend>1. 認証</legend>
-            <label>
-              <span>Web OAuth Client ID</span>
-              <input id="client-id" type="text" placeholder="1234567890-xxxx.apps.googleusercontent.com" autocomplete="off">
-            </label>
+            <div class="client-id-display">
+              <span>OAuth Client ID</span>
+              <strong>組み込み済み</strong>
+            </div>
             <div class="button-row">
               <button id="authorize-button" type="button">Google で認証</button>
               <button id="clear-token-button" type="button" class="secondary">解除</button>

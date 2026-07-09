@@ -195,8 +195,7 @@ legend {
 fieldset,
 .metric,
 .progress-wrap,
-.log-panel,
-.help-panel {
+.log-panel {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
@@ -347,8 +346,7 @@ select:focus {
   font-weight: 500;
 }
 
-.progress-wrap,
-.help-panel {
+.progress-wrap {
   padding: 16px;
 }
 
@@ -408,16 +406,6 @@ select:focus {
 
 #log-list li[data-level="error"] {
   color: var(--danger);
-}
-
-.help-panel ol {
-  margin: 12px 0 0;
-  padding-left: 22px;
-  color: var(--muted);
-}
-
-.help-panel li {
-  margin: 8px 0;
 }
 
 @media (max-width: 900px) {

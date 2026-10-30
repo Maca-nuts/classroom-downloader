@@ -21,3 +21,6 @@ client_secret*.json
 token.json
 .env
 .env.*
+
+# Local design inspection screenshots and reports
+.taste-skill/

@@ -1,147 +1,36 @@
 <!doctype html>
 <html lang="ja">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Classroom Drive Downloader</title>
-    <meta
-      name="description"
-      content="Google Classroom の添付 Drive ファイルをブラウザからまとめてダウンロードする GitHub Pages アプリです。"
-    >
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
-  </head>
-  <body>
-    <main class="app-shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">Google Classroom Drive Downloader</p>
-          <h1>Classroomのファイルをまとめて保存</h1>
-        </div>
-        <a class="repo-link" href="https://github.com/Maca-nuts/classroom-downloader" target="_blank" rel="noreferrer">GitHub</a>
-      </header>
-
-      <section class="status-strip" id="status-strip" aria-live="polite">
-        <span class="status-dot" aria-hidden="true"></span>
-        <p id="status-text">Google で認証してください。</p>
-      </section>
-
-      <section class="layout">
-        <form class="control-pane" id="download-form">
-          <fieldset>
-            <legend>1. 認証</legend>
-            <div class="client-id-display">
-              <span>OAuth Client ID</span>
-              <strong>組み込み済み</strong>
-            </div>
-            <div class="button-row">
-              <button id="authorize-button" type="button">Google で認証</button>
-              <button id="clear-token-button" type="button" class="secondary">解除</button>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>2. コース</legend>
-            <div class="button-row">
-              <button id="load-courses-button" type="button">コースを読み込む</button>
-              <label class="check-row">
-                <input id="include-archived" type="checkbox">
-                <span>アーカイブ済みも表示</span>
-              </label>
-            </div>
-            <label>
-              <span>対象コース</span>
-              <select id="course-select">
-                <option value="">コースを読み込んでください</option>
-              </select>
-            </label>
-          </fieldset>
-
-          <fieldset>
-            <legend>3. 保存名</legend>
-            <label>
-              <span>ZIP ファイル名</span>
-              <input id="zip-name" type="text" value="classroom-downloads.zip" autocomplete="off">
-            </label>
-          </fieldset>
-
-          <fieldset>
-            <legend>4. 絞り込み</legend>
-            <div class="segmented" role="radiogroup" aria-label="日付の種類">
-              <label>
-                <input type="radio" name="date-field" value="modified" checked>
-                <span>更新日</span>
-              </label>
-              <label>
-                <input type="radio" name="date-field" value="created">
-                <span>作成日</span>
-              </label>
-            </div>
-            <div class="two-col">
-              <label>
-                <span>開始日</span>
-                <input id="start-date" type="date">
-              </label>
-              <label>
-                <span>終了日</span>
-                <input id="end-date" type="date">
-              </label>
-            </div>
-            <label>
-              <span>ダウンロードする拡張子</span>
-              <input id="include-ext" type="text" placeholder="pdf, docx, png" autocomplete="off">
-            </label>
-            <label>
-              <span>除外する拡張子</span>
-              <input id="exclude-ext" type="text" placeholder="zip, exe" autocomplete="off">
-            </label>
-          </fieldset>
-
-          <button id="download-button" type="submit" class="primary">ZIP を作成してダウンロード</button>
-        </form>
-
-        <section class="work-pane">
-          <div class="summary-grid">
-            <div class="metric">
-              <span id="course-count">0</span>
-              <p>コース</p>
-            </div>
-            <div class="metric">
-              <span id="file-count">0</span>
-              <p>保存</p>
-            </div>
-            <div class="metric">
-              <span id="filtered-count">0</span>
-              <p>除外</p>
-            </div>
-            <div class="metric">
-              <span id="skipped-count">0</span>
-              <p>失敗</p>
-            </div>
-          </div>
-
-          <div class="progress-wrap">
-            <div class="progress-track" aria-hidden="true">
-              <div class="progress-bar" id="progress-bar"></div>
-            </div>
-            <p id="progress-text">待機中</p>
-          </div>
-
-          <div class="log-panel">
-            <div class="panel-header">
-              <h2>処理ログ</h2>
-              <button id="clear-log-button" type="button" class="secondary">クリア</button>
-            </div>
-            <ol id="log-list"></ol>
-          </div>
-
-        </section>
-      </section>
-    </main>
-    <script src="./app.js"></script>
-  </body>
-</html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>資料をまとめて保存 | Classroom Downloader</title>
+<meta name="description" content="Google Classroomの授業資料を日付や拡張子で絞り込み、ZIPにまとめて保存。">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
+</head>
+<body>
+<aside class="sidebar" aria-label="アカウント">
+<a class="brand" href="./index.html" aria-label="Classroom Downloader ホーム"><svg viewBox="0 0 32 32" width="32" height="32" fill="none" aria-hidden="true"><path d="M4 8h10l3 4h11v15H4V8Z" stroke="currentColor" stroke-width="2"/><path d="M16 3v16m-5-5 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Classroom<span class="brand-sub">Downloader</span></span></a>
+<div class="workspace-name">授業資料のダウンロード</div>
+<section class="account-section"><h2>Google アカウント</h2><p id="account-state">未接続</p><button id="authorize-button" type="button" class="connect-button">Google で接続</button><button id="clear-token-button" type="button" class="text-button">接続を解除</button><p class="note">授業に参加しているアカウントで接続してください。</p></section>
+<div class="sidebar-footer"><p>ファイルはこのブラウザから<br>直接ダウンロードされます。</p><a href="https://github.com/Maca-nuts/classroom-downloader" target="_blank" rel="noreferrer">GitHub でソースを見る ↗</a></div>
+</aside>
+<main class="canvas">
+<header class="page-header"><div><h1>資料をまとめて保存</h1><p>授業を選んで、必要な資料だけをZIPに。</p></div><button id="download-button" type="submit" form="download-form" class="primary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>ZIP をダウンロード</button></header>
+<section id="status-strip" class="status-strip" aria-label="接続・処理状況" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><p id="status-text">Google に接続すると、授業を読み込めます。</p></section>
+<div class="work-grid">
+<form id="download-form" class="settings">
+<section class="panel" aria-labelledby="course-heading"><div class="panel-heading"><h2 id="course-heading">対象の授業</h2><button id="load-courses-button" type="button" class="text-button">授業を読み込む ↻</button></div><label class="field"><span>授業名</span><select id="course-select"><option value="">Google に接続して授業を読み込んでください</option></select></label><div class="course-meta"><label class="check-row"><input id="include-archived" type="checkbox"><span>アーカイブ済みも表示</span></label><span class="note">取得した授業 <span id="course-count">0</span> 件</span></div></section>
+<section class="panel" aria-labelledby="filter-heading"><div class="panel-heading"><h2 id="filter-heading">ファイルの条件</h2><button id="reset-filters-button" type="button" class="text-button">リセット</button></div><div class="field date-field"><span id="date-label">日付の基準</span><div class="segmented" role="radiogroup" aria-labelledby="date-label"><label><input type="radio" name="date-field" value="modified" checked><span>更新日</span></label><label><input type="radio" name="date-field" value="created"><span>作成日</span></label></div></div><div class="two-col"><label class="field"><span>開始日</span><input id="start-date" type="date"></label><label class="field"><span>終了日</span><input id="end-date" type="date"></label></div><p class="note field-note">日付を指定しない場合は、すべての期間が対象です。</p><div class="two-col extensions"><label class="field"><span>保存する拡張子</span><input id="include-ext" type="text" placeholder="例: pdf, docx, png" autocomplete="off" aria-describedby="extension-help"></label><label class="field"><span>除外する拡張子</span><input id="exclude-ext" type="text" placeholder="例: zip, exe" autocomplete="off" aria-describedby="extension-help"></label></div><p class="note field-note" id="extension-help">複数の拡張子はカンマで区切ります。空欄なら拡張子で制限しません。</p></section>
+<section class="panel" aria-labelledby="zip-heading"><div class="panel-heading"><h2 id="zip-heading">保存ファイル</h2><span class="format-tag">ZIP</span></div><label class="field"><span>ZIP ファイル名</span><input id="zip-name" type="text" value="classroom-downloads.zip" autocomplete="off"></label><p class="note field-note">Google ドキュメント・スプレッドシート・スライドはPDFに変換します。</p></section>
+</form>
+<div class="results">
+<section class="panel manifest" aria-labelledby="manifest-heading"><div class="panel-heading"><h2 id="manifest-heading">保存する内容</h2><span class="note">フォルダ構成</span></div><div class="archive-name"><svg width="20" height="24" viewBox="0 0 20 24" fill="none" aria-hidden="true"><path d="M3 1h9l5 5v17H3V1Z" stroke="currentColor" stroke-width="1.5"/><path d="M12 1v6h5M8 2v12m0 3v3h3v-3H8Z" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 1"/></svg><span id="manifest-zip">classroom-downloads.zip</span></div><div class="folder-tree"><div><span class="folder-symbol" aria-hidden="true"></span><span id="manifest-course">選択した授業</span></div><div class="tree-child"><span class="folder-symbol" aria-hidden="true"></span>課題・資料のタイトル</div><div class="tree-leaf">添付ファイル</div></div><dl class="manifest-details"><div><dt>対象期間</dt><dd id="manifest-date">すべての期間</dd></div><div><dt>拡張子</dt><dd id="manifest-ext">すべての形式</dd></div></dl></section>
+<section class="panel outcome" aria-labelledby="result-heading"><div class="panel-heading"><h2 id="result-heading">保存結果</h2><span id="result-state" class="note">未実行</span></div><div class="metrics"><div><span class="metric-label">保存</span><span id="file-count" class="metric-value">0</span></div><div><span class="metric-label">条件で除外</span><span id="filtered-count" class="metric-value">0</span></div><div><span class="metric-label">失敗</span><span id="skipped-count" class="metric-value">0</span></div></div><div class="progress-track" role="progressbar" aria-label="ファイルの処理進捗" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar"></div></div><p id="progress-text" class="note" aria-live="polite">ダウンロードを開始すると、進捗が表示されます。</p></section>
+<section class="panel log-panel" aria-labelledby="log-heading"><div class="panel-heading"><h2 id="log-heading">処理ログ</h2><button id="clear-log-button" type="button" class="text-button">消去</button></div><ol id="log-list" aria-label="処理の記録"></ol><p class="log-empty note">まだ処理はありません。<br>接続・読み込み・保存の結果がここに表示されます。</p></section>
+</div></div>
+<footer class="page-footer"><span>Classroom Downloader</span><span>課題も授業資料も、授業ごとにひとまとめ。</span></footer>
+</main><script src="./app.js"></script>
+</body></html>

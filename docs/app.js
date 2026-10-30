@@ -65,6 +65,8 @@ const elements = {
 };
 
 const state = {
+  busy: false,
+  tokenExpiresAt: 0,
   tokenClient: null,
   accessToken: "",
   courses: [],
@@ -80,11 +82,14 @@ function selectedValue(name) {
 }
 
 function setBusy(isBusy) {
+  state.busy = isBusy;
   document.body.classList.toggle("is-busy", isBusy);
+  elements.form.setAttribute("aria-busy", String(isBusy));
   for (const control of elements.form.querySelectorAll("button, input, select")) {
     control.disabled = isBusy;
   }
   elements.clearLog.disabled = isBusy;
+  updateControls();
 }
 
 function setStatus(message, mode = "ready") {
@@ -94,7 +99,7 @@ function setStatus(message, mode = "ready") {
 
 function setProgress(done, total, label) {
   const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-  elements.progressBar.style.width = `${percent}%`;
+  setProgressPercent(percent);
   elements.progressText.textContent = total > 0 ? `${label} (${done}/${total})` : label;
 }
 
@@ -173,6 +178,8 @@ function initializeTokenClient() {
         return;
       }
       state.accessToken = response.access_token;
+      state.tokenExpiresAt = Date.now() + Number(response.expires_in || 3600) * 1000;
+      updateControls();
       setStatus("認証済みです。コースを読み込めます。", "ready");
       log("Google 認証が完了しました。", "success");
     },
@@ -194,7 +201,11 @@ function clearToken() {
     google.accounts.oauth2.revoke(state.accessToken);
   }
   state.accessToken = "";
+  state.tokenExpiresAt = 0;
   state.tokenClient = null;
+  resetStats();
+  setProgress(0, 0, "ダウンロードを開始すると、進捗が表示されます。");
+  document.querySelector("#result-state").textContent = "未実行";
   state.courses = [];
   renderCourses();
   setStatus("認証を解除しました。", "ready");
@@ -202,8 +213,8 @@ function clearToken() {
 }
 
 async function apiFetch(url, options = {}) {
-  if (!state.accessToken) {
-    throw new Error("Google で認証してください。");
+  if (!state.accessToken || Date.now() >= state.tokenExpiresAt) {
+    throw new Error("Google に再接続してから、もう一度実行してください。");
   }
 
   const response = await fetch(url, {
@@ -215,6 +226,11 @@ async function apiFetch(url, options = {}) {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      state.accessToken = "";
+      updateControls();
+      throw new Error("接続の有効期限が切れました。Google に再接続してください。");
+    }
     let detail = response.statusText;
     try {
       const payload = await response.json();
@@ -275,17 +291,19 @@ function renderCourses() {
   elements.courseSelect.replaceChildren();
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = state.courses.length ? "コースを選択してください" : "コースを読み込んでください";
+  placeholder.textContent = state.courses.length ? "授業を選択してください" : state.accessToken ? "授業を読み込んでください" : "Google に接続して授業を読み込んでください";
   elements.courseSelect.append(placeholder);
 
   for (const course of state.courses) {
     const option = document.createElement("option");
     option.value = course.id;
     const suffix = course.section ? ` [${course.section}]` : "";
-    option.textContent = `${course.name || "(無題)"}${suffix} (${course.courseState})`;
+    option.textContent = `${course.name || "(無題)"}${suffix}${course.courseState === "ARCHIVED" ? "（アーカイブ済み）" : ""}`;
     elements.courseSelect.append(option);
   }
   updateMetrics();
+  updateControls();
+  updateManifest();
 }
 
 async function collectCourseItems(courseId) {
@@ -482,7 +500,9 @@ async function runDownload(event) {
   const filters = getFilters();
   const usedPaths = new Set();
   const zip = new JSZip();
+  let completed = false;
   resetStats();
+  document.querySelector("#result-state").textContent = "処理中";
 
   try {
     setBusy(true);
@@ -530,19 +550,63 @@ async function runDownload(event) {
     }
 
     const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) => {
-      elements.progressBar.style.width = `${Math.round(metadata.percent)}%`;
+      setProgressPercent(Math.round(metadata.percent));
       elements.progressText.textContent = `ZIP を作成中 (${Math.round(metadata.percent)}%)`;
     });
     downloadBlob(zipBlob, safeName(elements.zipName.value || "classroom-downloads.zip"));
+    completed = true;
     setStatus("ZIP の作成とダウンロードを開始しました。", "ready");
     log("ZIP の作成が完了しました。", "success");
   } catch (error) {
     setStatus(error.message, "error");
     log(error.message, "error");
   } finally {
+    document.querySelector("#result-state").textContent = completed ? (state.stats.skipped ? "一部失敗" : "完了") : (state.stats.saved ? "ZIP 作成失敗" : "保存なし");
     setBusy(false);
   }
 }
+
+function setProgressPercent(percent) {
+  elements.progressBar.style.width = `${percent}%`;
+  elements.progressBar.parentElement.setAttribute("aria-valuenow", String(percent));
+}
+
+function updateControls() {
+  elements.authorize.disabled = state.busy;
+  elements.clearToken.disabled = state.busy || !state.accessToken;
+  elements.loadCourses.disabled = state.busy || !state.accessToken;
+  elements.courseSelect.disabled = state.busy || !state.courses.length;
+  document.querySelector("#download-button").disabled = state.busy || !state.accessToken || !elements.courseSelect.value;
+  document.querySelector("#account-state").textContent = state.accessToken ? "接続済み" : "未接続";
+  elements.authorize.textContent = state.accessToken ? "Google に再接続" : "Google で接続";
+}
+
+function updateManifest() {
+  const course = state.courses.find((item) => item.id === elements.courseSelect.value);
+  let name = safeName(elements.zipName.value || "classroom-downloads.zip");
+  if (!name.toLowerCase().endsWith(".zip")) name += ".zip";
+  document.querySelector("#manifest-zip").textContent = name;
+  document.querySelector("#manifest-course").textContent = course?.name || "選択した授業";
+  const start = elements.startDate.value;
+  const end = elements.endDate.value;
+  const kind = selectedValue("date-field") === "created" ? "作成日" : "更新日";
+  document.querySelector("#manifest-date").textContent = start || end ? `${kind}: ${start || "指定なし"} 〜 ${end || "指定なし"}` : "すべての期間";
+  const include = normalizeExtensions(elements.includeExt.value);
+  const exclude = normalizeExtensions(elements.excludeExt.value);
+  document.querySelector("#manifest-ext").textContent = `${include.length ? include.join(", ") : "すべての形式"}${exclude.length ? `（${exclude.join(", ")} を除外）` : ""}`;
+  updateControls();
+}
+
+elements.form.addEventListener("input", updateManifest);
+elements.form.addEventListener("change", updateManifest);
+elements.includeArchived.addEventListener("change", () => {
+  if (state.accessToken) loadCourses();
+});
+document.querySelector("#reset-filters-button").addEventListener("click", () => {
+  for (const input of [elements.startDate, elements.endDate, elements.includeExt, elements.excludeExt]) input.value = "";
+  elements.form.querySelector('input[name="date-field"][value="modified"]').checked = true;
+  updateManifest();
+});
 
 elements.authorize.addEventListener("click", authorize);
 elements.clearToken.addEventListener("click", clearToken);

@@ -1,0 +1,66 @@
+import { Browser } from '/home/ken/.agents/skills/design-taste-frontend/scripts/lib/cdp.mjs';
+import assert from 'node:assert/strict';
+const browser = await Browser.launch();
+try {
+ const page = await browser.newPage();
+ await page.goto('file://' + process.cwd() + '/docs/index.html');
+ const results = await page.eval(async () => {
+  const checks = [];
+  const check = (condition, label) => { if (!condition) throw new Error(label); checks.push(label); };
+  const el = id => document.getElementById(id);
+  check(el('download-button').disabled && el('load-courses-button').disabled, '未接続時の操作制限');
+  el('include-ext').value = '.PDF, png';
+  el('exclude-ext').value = 'exe';
+  el('zip-name').value = '授業資料';
+  el('include-ext').dispatchEvent(new Event('input', {bubbles:true}));
+  check(el('manifest-zip').textContent === '授業資料.zip' && el('manifest-ext').textContent.includes('pdf, png'), '保存プレビューの同期');
+  el('reset-filters-button').click();
+  check(!el('include-ext').value && el('manifest-ext').textContent === 'すべての形式', '条件のリセット');
+  window.google = {accounts:{oauth2:{initTokenClient: options => ({requestAccessToken: () => options.callback({access_token:'test-only',expires_in:3600})}),revoke:()=>{}}}};
+  el('authorize-button').click();
+  check(el('account-state').textContent === '接続済み' && !el('load-courses-button').disabled, 'Google 接続後の状態');
+  const originalFetch = window.fetch;
+  window.fetch = async url => {
+   if (url.includes('/v1/courses?')) return new Response(JSON.stringify({courses:[{id:'course1',name:'情報デザイン',courseState:'ACTIVE'}]}));
+   if (url.includes('/courseWork?')) return new Response(JSON.stringify({courseWork:[{id:'work1',title:'配布資料',materials:[{driveFile:{driveFile:{id:'file1',title:'講義.pdf'}}},{driveFile:{driveFile:{id:'file2',title:'補足.png'}}},{driveFile:{driveFile:{id:'file3',title:'非公開.pdf'}}}]}]}));
+   if (url.includes('/courseWorkMaterials?')) return new Response('{}');
+   if (url.includes('file3')) return new Response(JSON.stringify({error:{message:'アクセス不可'}}),{status:403});
+   if (url.includes('alt=media')) return new Response('mock file content');
+   const png = url.includes('file2');
+   return new Response(JSON.stringify({id:png?'file2':'file1',name:png?'補足.png':'講義.pdf',mimeType:png?'image/png':'application/pdf',fileExtension:png?'png':'pdf',modifiedTime:'2026-10-01T00:00:00Z',capabilities:{canDownload:true}}));
+  };
+  await loadCourses();
+  check(el('course-count').textContent === '1', '授業一覧の読み込み');
+  el('course-select').value = 'course1';
+  el('course-select').dispatchEvent(new Event('change',{bubbles:true}));
+  check(!el('download-button').disabled && el('manifest-course').textContent === '情報デザイン', '授業選択と保存操作の有効化');
+  el('start-date').value='2026-10-30';el('end-date').value='2026-10-01';
+  await runDownload(new Event('submit',{cancelable:true}));
+  check(el('status-text').textContent.includes('開始日'), '不正な日付範囲の検証');
+  el('reset-filters-button').click();el('include-ext').value='pdf';
+  el('exclude-ext').value='pdf';
+  check(validateSettings().includes('同じ拡張子'), '重複する拡張子の検証');
+  el('exclude-ext').value='';
+  check(!!window.JSZip, 'ZIP ライブラリ読み込み');
+  let captured;
+  downloadBlob = (blob, filename) => {captured={blob,filename};};
+  await runDownload(new Event('submit',{cancelable:true}));
+  check(state.stats.saved===1 && state.stats.filtered===1 && state.stats.skipped===1, '保存・除外・失敗件数の整合');
+  check(captured && captured.filename==='授業資料', 'ZIP ダウンロード呼び出し');
+  const zip = await JSZip.loadAsync(captured.blob);
+  check(await zip.file('情報デザイン/配布資料/講義.pdf').async('string') === 'mock file content', '実際のZIP内容と授業別フォルダ構成');
+  check(el('result-state').textContent==='一部失敗' && !el('download-button').disabled && el('progress-bar').parentElement.getAttribute('aria-valuenow')==='100', '終了状態と進捗・操作の復帰');
+  el('clear-log-button').click();
+  check(!el('log-list').children.length && getComputedStyle(document.querySelector('.log-empty')).display!=='none', 'ログ消去後の空状態');
+  window.fetch = async()=>new Response('{}',{status:401});
+  try {await apiFetch('https://example.invalid');} catch {}
+  check(el('account-state').textContent==='未接続' && el('download-button').disabled, '認証期限切れ時の復帰');
+  el('authorize-button').click();el('clear-token-button').click();
+  check(el('course-count').textContent==='0' && el('file-count').textContent==='0' && el('result-state').textContent==='未実行', '接続解除時の状態初期化');
+  window.fetch=originalFetch;
+  return checks;
+ });
+ assert.equal(page.consoleErrors.length,0,page.consoleErrors.join('\n'));
+ for (const result of results) console.log('PASS ' + result);
+ console.log(`${results.length} browser checks passed; no runtime exceptions.`);
+} finally {await browser.close();}

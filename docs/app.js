@@ -204,7 +204,7 @@ function clearToken() {
   state.tokenExpiresAt = 0;
   state.tokenClient = null;
   resetStats();
-  setProgress(0, 0, "ダウンロードを開始すると、進捗が表示されます。");
+  setProgress(0, 0, "保存を開始すると、進捗が表示されます");
   document.querySelector("#result-state").textContent = "未実行";
   state.courses = [];
   renderCourses();
@@ -291,7 +291,7 @@ function renderCourses() {
   elements.courseSelect.replaceChildren();
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = state.courses.length ? "授業を選択してください" : state.accessToken ? "授業を読み込んでください" : "Google に接続して授業を読み込んでください";
+  placeholder.textContent = state.courses.length ? "授業を選択してください" : state.accessToken ? "授業を読み込んでください" : "接続後に授業を選択";
   elements.courseSelect.append(placeholder);
 
   for (const course of state.courses) {

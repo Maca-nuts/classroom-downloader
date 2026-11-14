@@ -21,6 +21,7 @@ try {
   check(el('account-state').textContent === '接続済み' && !el('load-courses-button').disabled, 'Google 接続後の状態');
   const originalFetch = window.fetch;
   window.fetch = async url => {
+   if (url.includes('/upload/drive/v3/files')) return new Response(JSON.stringify({name:'授業資料.zip',webViewLink:'https://drive.google.com/file/d/mock'}));
    if (url.includes('/v1/courses?')) return new Response(JSON.stringify({courses:[{id:'course1',name:'情報デザイン',courseState:'ACTIVE'}]}));
    if (url.includes('/courseWork?')) return new Response(JSON.stringify({courseWork:[{id:'work1',title:'配布資料',materials:[{driveFile:{driveFile:{id:'file1',title:'講義.pdf'}}},{driveFile:{driveFile:{id:'file2',title:'補足.png'}}},{driveFile:{driveFile:{id:'file3',title:'非公開.pdf'}}}]}]}));
    if (url.includes('/courseWorkMaterials?')) return new Response('{}');
@@ -46,10 +47,15 @@ try {
   downloadBlob = (blob, filename) => {captured={blob,filename};};
   await runDownload(new Event('submit',{cancelable:true}));
   check(state.stats.saved===1 && state.stats.filtered===1 && state.stats.skipped===1, '保存・除外・失敗件数の整合');
-  check(captured && captured.filename==='授業資料', 'ZIP ダウンロード呼び出し');
+  check(captured && captured.filename==='授業資料.zip', 'ZIP ダウンロード呼び出し');
   const zip = await JSZip.loadAsync(captured.blob);
   check(await zip.file('情報デザイン/配布資料/講義.pdf').async('string') === 'mock file content', '実際のZIP内容と授業別フォルダ構成');
   check(el('result-state').textContent==='一部失敗' && !el('download-button').disabled && el('progress-bar').parentElement.getAttribute('aria-valuenow')==='100', '終了状態と進捗・操作の復帰');
+  el('destination').value='drive';
+  el('destination').dispatchEvent(new Event('change',{bubbles:true}));
+  check(el('download-button-label').textContent === 'Google Drive に保存', 'Google Drive 保存先の操作表示');
+  await runDownload(new Event('submit',{cancelable:true}));
+  check(el('status-text').textContent === 'ZIP を Google Drive に保存しました。', 'Google Drive へのZIP保存');
   el('clear-log-button').click();
   check(!el('log-list').children.length && getComputedStyle(document.querySelector('.log-empty')).display!=='none', 'ログ消去後の空状態');
   window.fetch = async()=>new Response('{}',{status:401});

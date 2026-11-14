@@ -1,17 +1,19 @@
 {
  "version": 1,
  "kind": "app",
- "at": "2026-10-30T01:09:39.531Z",
- "seed": 1527852541,
+ "at": "2026-11-01T08:28:16.321Z",
+ "seed": 608430041,
  "input": {
   "kind": "workspace",
-  "brief": "Google Classroomの授業資料を投稿日と形式で絞り込み、一括保存する日本語アプリ",
+  "brief": "Google Classroom course attachments into a filtered ZIP archive",
   "theme": "light",
   "screens": [
-   "list",
    "settings"
   ],
-  "keep": [],
+  "keep": [
+   "palette",
+   "type"
+  ],
   "style": "achromatic-ledger"
  },
  "style": {
@@ -117,35 +119,25 @@
   "notes": "The studied screens of this kind used 11-12px card radii, which §9.4 counts among the rare middle values; the library sets the tight pair (8 and 6) so the style lands on the bimodal rule. After testing, the chart hue moved from an unused third series colour onto the main data element: a screen whose only hue was a delta read as a kit."
  },
  "shell": {
-  "id": "open-plane",
-  "name": "Open plane",
-  "basis": "5 of 23 screens",
+  "id": "no-sidebar",
+  "name": "No sidebar",
+  "basis": "3 of 23 screens",
   "suits": [
-   "finance",
-   "wallet",
-   "workspace",
+   "report",
    "creator",
-   "analytics"
+   "community"
   ],
   "numbers": {
-   "sidebarWidth": "230-256 (230, 240, 256 in the study; 280 and 292 with a built-in icon rail)",
-   "separation": "none, or one 1px hairline; the sidebar sits on the page ground or within 1-2% of it",
-   "navPitch": 34,
-   "navRowHeight": 32,
-   "navIcon": "16px outline, about 1.5px stroke",
-   "navLabel": "14px, 400, grey or ink",
-   "activeItem": "neutral grey pill, radius 6-12, inset 8-12px from the sidebar edges (#e9e9e9-#ededed)",
-   "topBar": "none",
-   "canvas": "fluid with a 24-64px gutter, or a centred 1100px column"
+   "topBar": "46-48px on the page ground, no border",
+   "column": "centred, 1088-1208px",
+   "gutters": "152-212px at a 1512px window",
+   "logo": "on the column's left edge",
+   "links": "14-15px semibold grey"
   },
-  "blueprint": "The labelled sidebar sits on the page ground with nothing or one hairline between it and the canvas; there is no top bar, and the page header and cards sit straight on the ground about 32-36px from the top. Workspace or account switcher at the top of the sidebar, primary nav on a 34px pitch, groups under 12-13px sentence-case grey labels with 22-56px of air above, utilities and the user row pushed to the bottom. Cards are white on the off-white ground (or the sidebar is white with a 1px border on a #f9fafb canvas). The canvas is fluid with one gutter value, or a centred column for personal homes.",
-  "phone": "The sidebar folds into a 48px top bar holding the screen's name, a menu button that opens a full-screen sheet with the nav and the switcher, and at most one action. Content takes the full width with 16px margins."
+  "blueprint": "A 46-48px top bar on the page ground over a centred 1088-1208px column; the logo sits exactly on the column's left edge and the bar's right cluster ends near its right edge, so header and content share one column. Three to five text links, a 36px search, the account. Use it for generated reports, viewers and products with few destinations; with a sticky bar on the same ground, give it a 1px rule when content scrolls under it (the studied bar without one sliced content off).",
+  "phone": "The bar keeps the logo, a search icon and a menu button; the links move into the menu sheet. The column becomes the full width with 16px margins."
  },
  "screens": [
-  {
-   "name": "list",
-   "pattern": null
-  },
   {
    "name": "settings",
    "pattern": {

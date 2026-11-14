@@ -4,6 +4,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
   "https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly",
   "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/drive.file",
 ].join(" ");
 
 const WEB_OAUTH_CLIENT_ID =
@@ -48,6 +49,7 @@ const elements = {
   includeArchived: document.querySelector("#include-archived"),
   courseSelect: document.querySelector("#course-select"),
   zipName: document.querySelector("#zip-name"),
+  destination: document.querySelector("#destination"),
   startDate: document.querySelector("#start-date"),
   endDate: document.querySelector("#end-date"),
   includeExt: document.querySelector("#include-ext"),
@@ -142,6 +144,9 @@ function validateSettings() {
   if (!elements.courseSelect.value) {
     return "対象コースを選択してください。";
   }
+  if (!elements.destination.value) {
+    return "保存先を選択してください。";
+  }
   if (elements.startDate.value && elements.endDate.value && elements.startDate.value > elements.endDate.value) {
     return "開始日は終了日以前にしてください。";
   }
@@ -204,7 +209,7 @@ function clearToken() {
   state.tokenExpiresAt = 0;
   state.tokenClient = null;
   resetStats();
-  setProgress(0, 0, "ダウンロードを開始すると、進捗が表示されます。");
+  setProgress(0, 0, "保存を開始すると、進捗が表示されます");
   document.querySelector("#result-state").textContent = "未実行";
   state.courses = [];
   renderCourses();
@@ -291,7 +296,7 @@ function renderCourses() {
   elements.courseSelect.replaceChildren();
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = state.courses.length ? "授業を選択してください" : state.accessToken ? "授業を読み込んでください" : "Google に接続して授業を読み込んでください";
+  placeholder.textContent = state.courses.length ? "授業を選択してください" : state.accessToken ? "授業を読み込んでください" : "接続後に授業を選択";
   elements.courseSelect.append(placeholder);
 
   for (const course of state.courses) {
@@ -480,6 +485,33 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+async function uploadZipToDrive(blob, filename) {
+  const boundary = `classroom-downloader-${crypto.randomUUID()}`;
+  const body = new Blob(
+    [
+      `--${boundary}\r\n`,
+      "Content-Type: application/json; charset=UTF-8\r\n\r\n",
+      JSON.stringify({ name: filename, mimeType: "application/zip" }),
+      `\r\n--${boundary}\r\n`,
+      "Content-Type: application/zip\r\n\r\n",
+      blob,
+      `\r\n--${boundary}--`,
+    ],
+    { type: `multipart/related; boundary="${boundary}"` },
+  );
+  const response = await apiFetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink",
+    {
+      method: "POST",
+      body,
+      headers: {
+        "Content-Type": body.type,
+      },
+    },
+  );
+  return response.json();
+}
+
 async function runDownload(event) {
   event.preventDefault();
   const validationMessage = validateSettings();
@@ -553,10 +585,26 @@ async function runDownload(event) {
       setProgressPercent(Math.round(metadata.percent));
       elements.progressText.textContent = `ZIP を作成中 (${Math.round(metadata.percent)}%)`;
     });
-    downloadBlob(zipBlob, safeName(elements.zipName.value || "classroom-downloads.zip"));
-    completed = true;
-    setStatus("ZIP の作成とダウンロードを開始しました。", "ready");
-    log("ZIP の作成が完了しました。", "success");
+    const requestedZipName = safeName(elements.zipName.value || "classroom-downloads.zip");
+    const zipName = requestedZipName.toLowerCase().endsWith(".zip")
+      ? requestedZipName
+      : `${requestedZipName}.zip`;
+    if (elements.destination.value === "drive") {
+      const uploadedFile = await uploadZipToDrive(zipBlob, zipName);
+      completed = true;
+      setStatus("ZIP を Google Drive に保存しました。", "ready");
+      log(
+        uploadedFile.webViewLink
+          ? `Google Drive に保存しました: ${uploadedFile.webViewLink}`
+          : `Google Drive に保存しました: ${uploadedFile.name || zipName}`,
+        "success",
+      );
+    } else {
+      downloadBlob(zipBlob, zipName);
+      completed = true;
+      setStatus("ZIP の作成とダウンロードを開始しました。", "ready");
+      log("ZIP の作成が完了しました。", "success");
+    }
   } catch (error) {
     setStatus(error.message, "error");
     log(error.message, "error");
@@ -577,6 +625,8 @@ function updateControls() {
   elements.loadCourses.disabled = state.busy || !state.accessToken;
   elements.courseSelect.disabled = state.busy || !state.courses.length;
   document.querySelector("#download-button").disabled = state.busy || !state.accessToken || !elements.courseSelect.value;
+  document.querySelector("#download-button-label").textContent =
+    elements.destination.value === "drive" ? "Google Drive に保存" : "ZIP をダウンロード";
   document.querySelector("#account-state").textContent = state.accessToken ? "接続済み" : "未接続";
   elements.authorize.textContent = state.accessToken ? "Google に再接続" : "Google で接続";
 }

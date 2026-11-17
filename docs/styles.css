@@ -154,3 +154,7 @@ input::placeholder { color: var(--muted); opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
+
+[hidden] { display: none !important; }
+#drive-settings { margin-top: 20px; }
+#drive-settings > .field { margin-bottom: 20px; }

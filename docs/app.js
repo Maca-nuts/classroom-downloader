@@ -3,8 +3,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
   "https://www.googleapis.com/auth/classroom.student-submissions.me.readonly",
   "https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly",
-  "https://www.googleapis.com/auth/drive.readonly",
-  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive",
 ].join(" ");
 
 const WEB_OAUTH_CLIENT_ID =
@@ -50,6 +49,9 @@ const elements = {
   courseSelect: document.querySelector("#course-select"),
   zipName: document.querySelector("#zip-name"),
   destination: document.querySelector("#destination"),
+  driveFormat: document.querySelector("#drive-format"),
+  driveFolder: document.querySelector("#drive-folder"),
+  loadFolders: document.querySelector("#load-folders-button"),
   startDate: document.querySelector("#start-date"),
   endDate: document.querySelector("#end-date"),
   includeExt: document.querySelector("#include-ext"),
@@ -182,6 +184,7 @@ function initializeTokenClient() {
         log(`認証に失敗しました: ${response.error}`, "error");
         return;
       }
+      elements.driveFolder.replaceChildren(new Option("マイドライブ直下", "root"));
       state.accessToken = response.access_token;
       state.tokenExpiresAt = Date.now() + Number(response.expires_in || 3600) * 1000;
       updateControls();
@@ -208,6 +211,7 @@ function clearToken() {
   state.accessToken = "";
   state.tokenExpiresAt = 0;
   state.tokenClient = null;
+  elements.driveFolder.replaceChildren(new Option("マイドライブ直下", "root"));
   resetStats();
   setProgress(0, 0, "保存を開始すると、進捗が表示されます");
   document.querySelector("#result-state").textContent = "未実行";
@@ -485,22 +489,64 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-async function uploadZipToDrive(blob, filename) {
+function usesZip() {
+  return elements.destination.value !== "drive" || elements.driveFormat.value === "zip";
+}
+
+async function loadDriveFolders() {
+  try {
+    setBusy(true);
+    const query = new URLSearchParams({
+      q: "mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+      fields: "nextPageToken,files(id,name,parents,capabilities/canAddChildren)",
+      pageSize: "1000", supportsAllDrives: "true", includeItemsFromAllDrives: "true",
+    });
+    const folders = await listAll(`https://www.googleapis.com/drive/v3/files?${query}`, "files");
+    const byId = new Map(folders.map(folder => [folder.id, folder]));
+    function folderPath(folder, seen = new Set()) {
+      if (!folder || seen.has(folder.id)) return "";
+      seen.add(folder.id);
+      const parent = byId.get(folder.parents?.[0]);
+      return parent ? `${folderPath(parent, seen)} / ${folder.name}` : folder.name;
+    }
+    const selected = elements.driveFolder.value;
+    elements.driveFolder.replaceChildren(new Option("マイドライブ直下", "root"));
+    for (const folder of folders.filter(folder => folder.capabilities?.canAddChildren)
+      .sort((a, b) => folderPath(a).localeCompare(folderPath(b), "ja"))) {
+      elements.driveFolder.add(new Option(`${folderPath(folder)} (${folder.id})`, folder.id));
+    }
+    elements.driveFolder.value = [...elements.driveFolder.options].some(option => option.value === selected) ? selected : "root";
+    setStatus("保存先フォルダを読み込みました。", "ready");
+  } catch (error) {
+    setStatus(error.message, "error");
+    log(error.message, "error");
+  } finally { setBusy(false); }
+}
+
+async function createDriveFolder(name, parentId) {
+  const response = await apiFetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parentId] }),
+  });
+  return (await response.json()).id;
+}
+
+async function uploadFileToDrive(blob, filename, parentId, mimeType = blob.type || "application/octet-stream") {
   const boundary = `classroom-downloader-${crypto.randomUUID()}`;
   const body = new Blob(
     [
       `--${boundary}\r\n`,
       "Content-Type: application/json; charset=UTF-8\r\n\r\n",
-      JSON.stringify({ name: filename, mimeType: "application/zip" }),
+      JSON.stringify({ name: filename, mimeType, parents: [parentId] }),
       `\r\n--${boundary}\r\n`,
-      "Content-Type: application/zip\r\n\r\n",
+      `Content-Type: ${mimeType}\r\n\r\n`,
       blob,
       `\r\n--${boundary}--`,
     ],
     { type: `multipart/related; boundary="${boundary}"` },
   );
   const response = await apiFetch(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink",
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink",
     {
       method: "POST",
       body,
@@ -520,7 +566,7 @@ async function runDownload(event) {
     log(validationMessage, "error");
     return;
   }
-  if (!window.JSZip) {
+  if (usesZip() && !window.JSZip) {
     setStatus("ZIP ライブラリを読み込めませんでした。", "error");
     log("ZIP ライブラリを読み込めませんでした。", "error");
     return;
@@ -531,7 +577,19 @@ async function runDownload(event) {
   const courseName = safeName(course?.name || courseId);
   const filters = getFilters();
   const usedPaths = new Set();
-  const zip = new JSZip();
+  const zip = usesZip() ? new JSZip() : null;
+  const parentId = elements.driveFolder.value;
+  const driveDirectories = new Map();
+  async function directoryFor(path) {
+    let parent = parentId;
+    let key = "";
+    for (const name of path.split("/")) {
+      key += `/${name}`;
+      if (!driveDirectories.has(key)) driveDirectories.set(key, await createDriveFolder(name, parent));
+      parent = driveDirectories.get(key);
+    }
+    return parent;
+  }
   let completed = false;
   resetStats();
   document.querySelector("#result-state").textContent = "処理中";
@@ -563,7 +621,13 @@ async function runDownload(event) {
           `${courseName}/${safeName(attachment.sourceTitle)}/${getOutputFilename(metadata, filters.exportFormat)}`,
           usedPaths,
         );
-        zip.file(outputPath, blob);
+        if (zip) {
+          zip.file(outputPath, blob);
+        } else {
+          const slash = outputPath.lastIndexOf("/");
+          const folderId = await directoryFor(outputPath.slice(0, slash));
+          await uploadFileToDrive(blob, outputPath.slice(slash + 1), folderId);
+        }
         state.stats.saved += 1;
         log(`保存: ${outputPath}`, "success");
         updateMetrics();
@@ -574,14 +638,19 @@ async function runDownload(event) {
       }
     }
 
-    setProgress(attachments.length, attachments.length, "ZIP を作成中");
+    setProgress(attachments.length, attachments.length, zip ? "ZIP を作成中" : "保存処理が完了しました");
     if (state.stats.saved === 0) {
       setStatus("保存対象のファイルがありませんでした。", "error");
       log("保存対象のファイルがありませんでした。", "error");
       return;
     }
 
-    const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) => {
+    if (!zip) {
+      completed = true;
+      setStatus("個別ファイルを Google Drive に保存しました。", "ready");
+      return;
+    }
+    const zipBlob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" }, (metadata) => {
       setProgressPercent(Math.round(metadata.percent));
       elements.progressText.textContent = `ZIP を作成中 (${Math.round(metadata.percent)}%)`;
     });
@@ -590,7 +659,7 @@ async function runDownload(event) {
       ? requestedZipName
       : `${requestedZipName}.zip`;
     if (elements.destination.value === "drive") {
-      const uploadedFile = await uploadZipToDrive(zipBlob, zipName);
+      const uploadedFile = await uploadFileToDrive(zipBlob, zipName, parentId, "application/zip");
       completed = true;
       setStatus("ZIP を Google Drive に保存しました。", "ready");
       log(
@@ -609,7 +678,7 @@ async function runDownload(event) {
     setStatus(error.message, "error");
     log(error.message, "error");
   } finally {
-    document.querySelector("#result-state").textContent = completed ? (state.stats.skipped ? "一部失敗" : "完了") : (state.stats.saved ? "ZIP 作成失敗" : "保存なし");
+    document.querySelector("#result-state").textContent = completed ? (state.stats.skipped ? "一部失敗" : "完了") : (state.stats.saved ? "保存処理失敗" : "保存なし");
     setBusy(false);
   }
 }
@@ -620,6 +689,10 @@ function setProgressPercent(percent) {
 }
 
 function updateControls() {
+  document.querySelector("#drive-settings").hidden = elements.destination.value !== "drive";
+  document.querySelector("#zip-name-field").hidden = !usesZip();
+  document.querySelector("#format-tag").textContent = usesZip() ? "ZIP" : "個別ファイル";
+  elements.loadFolders.disabled = state.busy || !state.accessToken;
   elements.authorize.disabled = state.busy;
   elements.clearToken.disabled = state.busy || !state.accessToken;
   elements.loadCourses.disabled = state.busy || !state.accessToken;
@@ -635,7 +708,7 @@ function updateManifest() {
   const course = state.courses.find((item) => item.id === elements.courseSelect.value);
   let name = safeName(elements.zipName.value || "classroom-downloads.zip");
   if (!name.toLowerCase().endsWith(".zip")) name += ".zip";
-  document.querySelector("#manifest-zip").textContent = name;
+  document.querySelector("#manifest-zip").textContent = usesZip() ? name : "個別ファイル（圧縮なし）";
   document.querySelector("#manifest-course").textContent = course?.name || "選択した授業";
   const start = elements.startDate.value;
   const end = elements.endDate.value;
@@ -658,6 +731,7 @@ document.querySelector("#reset-filters-button").addEventListener("click", () => 
   updateManifest();
 });
 
+elements.loadFolders.addEventListener("click", loadDriveFolders);
 elements.authorize.addEventListener("click", authorize);
 elements.clearToken.addEventListener("click", clearToken);
 elements.loadCourses.addEventListener("click", loadCourses);
